@@ -1,105 +1,106 @@
 # PS4 Plugins Manager
 
-**PS4 Plugins Manager** is a homebrew utility for managing plugins on
-your PlayStation 4. It lets you browse installed games and applications,
-enable plugins for one or more games, manage a default plugin, and edit
-or back up `plugins.ini` directly from the console.
+A PlayStation 4 homebrew application for managing game plugins and their `plugins.ini` configuration directly from the console.
+
+Browse installed games, assign plugins to one or multiple titles, configure a default plugin, and maintain `plugins.ini` using the PS4 controller.
 
 ## Features
 
--   Browse applications installed on the PS4.
--   Select plugin files from the `plugins` folder and assign them to
-    games.
--   View the plugins currently enabled for a selected game.
--   Assign one plugin to multiple games.
--   Set a plugin as the default so it loads with all applications.
--   Switch between a standard list and an image-based plugin view.
--   Edit `plugins.ini`, copy and paste lines, delete entries, and create
-    or restore backups.
+- Browse games and applications installed on the PS4.
+- Select plugin files from the console's `plugins` directory.
+- View the plugins enabled for a selected game.
+- Assign one plugin to multiple games.
+- Set a plugin as the default for all applications.
+- Switch between a compact list and an image-based plugin view.
+- Edit `plugins.ini` from the console.
+- Copy, paste, and delete configuration entries.
+- Create and browse manual backups of `plugins.ini`.
 
 ## User Guide
 
-### 1. Games List 🎮
+### Games List
 
-This is the main screen. It displays the applications installed on your
-console as PKG-installed titles.
+The Games List displays the applications installed on your console.
 
-  -----------------------------------------------------------------------
-  Control                             Action
-  ----------------------------------- -----------------------------------
-  D-Pad / Arrow Buttons / Analog      Navigate through the games list
-  Stick                               
+| Control | Action |
+|:--|:--|
+| D-Pad / Analog Sticks | Navigate through the games list |
+| **✕ Cross** | Open the plugin list from the `plugins` folder. Multiple plugin files can be selected. |
+| **△ Triangle** | View the plugins enabled for the selected game. |
 
-  ✕ Cross                             Open the plugin file list from the
-                                      `plugins` folder. You can select
-                                      multiple plugin files.
+### My Plugins
 
-  △ Triangle                          Show the plugins currently enabled
-                                      for the selected game.
-  -----------------------------------------------------------------------
+My Plugins displays the available plugin files. Use **L1 / R1** to switch between the available lists.
 
-### 2. My Plugins 🔌
+| Control | Action |
+|:--|:--|
+| D-Pad / Analog Sticks | Navigate through the plugin list |
+| **✕ Cross** | Open the games list and assign the selected plugin to one or more games |
+| **OPTIONS** | Set the selected plugin as the default plugin, loaded with all applications |
+| **R3** | Switch between list view and image view |
+| **□ Square** | Reload the plugin list |
 
-This screen displays the available plugins. Use **L1 / R1** to switch
-between menus.
+#### Plugin artwork
 
-  -----------------------------------------------------------------------
-  Control                             Action
-  ----------------------------------- -----------------------------------
-  D-Pad / Arrow Buttons / Analog      Navigate through the plugin list
-  Stick                               
+In image view, the application looks for a `.png` image with the same base name as the plugin. Keep the image in the appropriate plugins directory.
 
-  ✕ Cross                             Open the games list and select one
-                                      or more games to use the selected
-                                      plugin
+For example:
 
-  OPTIONS                             Set the selected plugin as the
-                                      default plugin. A default plugin
-                                      loads with all applications.
-
-  R3                                  Switch between list view and image
-                                      view
-
-  □ Square                            Reload the plugin list
-  -----------------------------------------------------------------------
-
-#### Plugin images
-
-In image view, the application looks for a PNG image with the same
-filename as the plugin. For example:
-
-``` text
+```text
 orbisnet.sprx
 orbisnet.png
 ```
 
-Place the image alongside the plugin files in the appropriate plugins
-directory. If a matching image is not available, the application may
-display its default image.
+If no matching image is found, the application uses its default image.
 
-### 3. plugins.ini 📝
+### plugins.ini Editor
 
-This screen lets you edit `plugins.ini` manually and manage backup
-copies of the file.
+Use this screen to manage the entries in `plugins.ini` directly on your console.
 
-  Control                                Action
-  -------------------------------------- -------------------------------------------------------
-  D-Pad / Arrow Buttons / Analog Stick   Navigate through the entries
-  ✕ Cross                                Open the on-screen keyboard to edit the selected line
-  □ Square                               Delete the selected line
-  L2                                     Copy the selected line
-  R2                                     Paste the copied line below the selected line
-  △ Triangle                             Create a backup of `plugins.ini`
-  OPTIONS                                Open the list of existing backups
+| Control | Action |
+|:--|:--|
+| D-Pad / Analog Sticks | Navigate through the entries |
+| **✕ Cross** | Open the on-screen keyboard to edit the selected line |
+| **□ Square** | Delete the selected line |
+| **L2** | Copy the selected line |
+| **R2** | Paste the copied line below the selected line |
+| **△ Triangle** | Create a backup of `plugins.ini` |
+| **OPTIONS** | Open the list of existing backups |
 
-> **Important:** Backups are not created automatically. Create a backup
-> manually by pressing **△ Triangle** before making changes to
-> `plugins.ini`.
+> [!IMPORTANT]
+> Backups are **not created automatically**. Press **△ Triangle** to create a backup before editing `plugins.ini`.
 
 ## Notes
 
--   Plugin files must be placed in the console's `plugins` folder to
-    appear in the plugin selection list.
--   Be careful when editing `plugins.ini`. Incorrect entries may prevent
-    plugins from loading as expected.
--   Creating a backup before editing the file is strongly recommended.
+- Plugin files must be placed in the console's `plugins` directory to appear in the plugin selection list.
+- The image-view feature expects artwork to use the same base filename as its plugin (for example, `example.sprx` and `example.png`).
+- Be careful when editing `plugins.ini`. Incorrect paths or entries may prevent plugins from loading as expected.
+- Creating a backup before making configuration changes is strongly recommended.
+
+## Building from Source
+
+This repository contains the project source code. The OpenOrbis Toolchain is a separate dependency and is **not included** in this repository.
+
+See **[OPENORBIS_SETUP.md](OPENORBIS_SETUP.md)** for the required toolchain files, host tools, and setup notes before building.
+
+> Windows build support is provided in the build scripts but has not yet been verified in a tested Windows build environment.
+
+## Project Structure
+
+| Path | Description |
+|:--|:--|
+| `PS4PluginEditor/` | Main application source |
+| `_common/` | Shared source and graphics files |
+| `assets/` | Application assets |
+| `sce_sys/` | Application system resources and metadata |
+| `sce_module/` | Module-related project files |
+| `libjbc/` | `libjbc` build script and integration files |
+| `OPENORBIS_SETUP.md` | OpenOrbis Toolchain setup requirements |
+
+## Contributing
+
+Bug reports, suggestions, and improvements are welcome. Please include clear reproduction steps and relevant details when reporting an issue.
+
+## Disclaimer
+
+This project is provided as-is. Use it at your own risk. Always keep a backup of your plugin configuration before making changes.
