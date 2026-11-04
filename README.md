@@ -4,6 +4,33 @@ A PlayStation 4 homebrew application for managing game plugins and their `plugin
 
 Browse installed games, assign plugins to one or multiple titles, configure a default plugin, and maintain `plugins.ini` using the PS4 controller.
 
+## Screenshots
+
+### Games List
+Browse the games and applications installed on the console.
+
+![Games List](screenshots/games-list.jpg)
+
+### My Plugins — Grid View
+View plugins with their matching artwork. Artwork is loaded when a PNG with the same base filename as the plugin is available.
+
+![My Plugins — Grid View](screenshots/my-plugins-grid.jpg)
+
+### My Plugins — List View
+See plugin paths and whether each plugin is configured as a default plugin or for individual games.
+
+![My Plugins — List View](screenshots/my-plugins-list.jpg)
+
+### plugins.ini Editor
+Review and edit the entries in `plugins.ini` directly on the console.
+
+![plugins.ini Editor](screenshots/plugins-ini-editor.jpg)
+
+### Backup History
+Browse the manual backups created from the `plugins.ini` screen.
+
+![Backup History](screenshots/plugins-ini-backups.jpg)
+
 ## Features
 
 - Browse games and applications installed on the PS4.
