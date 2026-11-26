@@ -1,93 +1,103 @@
 # PS4 Plugins Manager
 
-A PlayStation 4 homebrew application for managing game plugins and their `plugins.ini` configuration directly from the console.
+A PlayStation 4 homebrew application for managing GoldHEN game plugins and the `plugins.ini` configuration directly from your console.
 
-Browse installed games, assign plugins to one or multiple titles, configure a default plugin, and maintain `plugins.ini` using the PS4 controller.
+Browse installed games, assign plugins to one or multiple titles, manage your plugin collection, set default plugins, and edit or back up `plugins.ini` using the PS4 controller.
 
 ## Screenshots
 
-### Games List
+The screenshots below show the current application interface.
+
+### My Games
+
 Browse the games and applications installed on the console.
 
-![Games List](screenshots/games-list.jpg)
+![My Games](screenshots/games-list.jpg)
 
-### My Plugins — Grid View
-View plugins with their matching artwork. Artwork is loaded when a PNG with the same base filename as the plugin is available.
+### Game Plugins — Grid View
 
-![My Plugins — Grid View](screenshots/my-plugins-grid.jpg)
+Browse plugin files using the artwork-based grid layout.
 
-### My Plugins — List View
-See plugin paths and whether each plugin is configured as a default plugin or for individual games.
+![Game Plugins — Grid View](screenshots/my-plugins-grid.jpg)
 
-![My Plugins — List View](screenshots/my-plugins-list.jpg)
+### Game Plugins — List View
 
-### plugins.ini Editor
+Browse plugin filenames and check how each plugin is used in `plugins.ini`.
+
+![Game Plugins — List View](screenshots/my-plugins-list.jpg)
+
+### GET — Internet
+
+Browse the online plugin catalog and get plugins from the Internet.
+
+### GET — USB
+
+Browse plugin files available on a connected USB storage device.
+
+### GET — File Browser
+
+Browse files and folders on the console and choose plugin files.
+
+### `plugins.ini` Editor
+
 Review and edit the entries in `plugins.ini` directly on the console.
 
 ![plugins.ini Editor](screenshots/plugins-ini-editor.jpg)
 
 ### Backup History
-Browse the manual backups created from the `plugins.ini` screen.
+
+Browse manual backups created from the `plugins.ini` screen.
 
 ![Backup History](screenshots/plugins-ini-backups.jpg)
 
 ## Features
 
 - Browse games and applications installed on the PS4.
-- Select plugin files from the console's `plugins` directory.
-- View the plugins enabled for a selected game.
-- Assign one plugin to multiple games.
-- Set a plugin as the default for all applications.
-- Switch between a compact list and an image-based plugin view.
-- Edit `plugins.ini` from the console.
+- Manage plugin files from the Game Plugins screen.
+- Assign a plugin to one or multiple games.
+- Set a plugin as the default plugin for all applications.
+- View plugin usage information based on its entries in `plugins.ini`.
+- Switch between List View and Grid View.
+- Get plugins from three sources:
+  - **Internet** — browse the online plugin catalog.
+  - **USB** — browse plugin files on connected USB storage.
+  - **File Browser** — browse files and folders on the console.
+- Edit `plugins.ini` directly from the console.
 - Copy, paste, and delete configuration entries.
 - Create and browse manual backups of `plugins.ini`.
 
 ## User Guide
 
-### Games List
+### My Games
 
-The Games List displays the applications installed on your console.
+The My Games screen displays the games and applications installed on your console. Select a game to manage the plugins assigned to it, or view the plugins already enabled for that title.
 
-| Control | Action |
+### Game Plugins
+
+Game Plugins displays the available plugin files. Use the screen controls to select plugins, assign them to games, set a default plugin, refresh the list, and switch between List View and Grid View.
+
+In List View, the filename is displayed without the full `/data/GoldHEN/plugins/` directory prefix. The usage column indicates whether the plugin is configured as a default plugin or how many game entries use it in `plugins.ini`.
+
+### GET
+
+The GET menu provides three ways to find plugin files:
+
+| Source | Description |
 |:--|:--|
-| D-Pad / Analog Sticks | Navigate through the games list |
-| **✕ Cross** | Open the plugin list from the `plugins` folder. Multiple plugin files can be selected. |
-| **△ Triangle** | View the plugins enabled for the selected game. |
+| **Internet** | Browse the online plugin catalog and get plugin files from the Internet. |
+| **USB** | Browse plugin files stored on a connected USB device. |
+| **File Browser** | Navigate the console's file system and choose plugin files from an available location. |
 
-### My Plugins
+The Internet catalog is online content; its catalog artwork and plugin entries are retrieved from the online source rather than being bundled as local catalog images in the PKG.
 
-My Plugins displays the available plugin files. Use **L1 / R1** to switch between the available lists.
-
-| Control | Action |
-|:--|:--|
-| D-Pad / Analog Sticks | Navigate through the plugin list |
-| **✕ Cross** | Open the games list and assign the selected plugin to one or more games |
-| **OPTIONS** | Set the selected plugin as the default plugin, loaded with all applications |
-| **R3** | Switch between list view and image view |
-| **□ Square** | Reload the plugin list |
-
-#### Plugin artwork
-
-In image view, the application looks for a `.png` image with the same base name as the plugin. Keep the image in the appropriate plugins directory.
-
-For example:
-
-```text
-orbisnet.sprx
-orbisnet.png
-```
-
-If no matching image is found, the application uses its default image.
-
-### plugins.ini Editor
+### `plugins.ini` Editor
 
 Use this screen to manage the entries in `plugins.ini` directly on your console.
 
 | Control | Action |
 |:--|:--|
 | D-Pad / Analog Sticks | Navigate through the entries |
-| **✕ Cross** | Open the on-screen keyboard to edit the selected line |
+| **✕ Cross** | Edit the selected line using the on-screen keyboard |
 | **□ Square** | Delete the selected line |
 | **L2** | Copy the selected line |
 | **R2** | Paste the copied line below the selected line |
@@ -99,8 +109,9 @@ Use this screen to manage the entries in `plugins.ini` directly on your console.
 
 ## Notes
 
-- Plugin files must be placed in the console's `plugins` directory to appear in the plugin selection list.
-- The image-view feature expects artwork to use the same base filename as its plugin (for example, `example.sprx` and `example.png`).
+- Plugin configuration is managed through GoldHEN's `plugins.ini`.
+- The Internet source requires an active network connection.
+- USB browsing requires a connected and mounted USB storage device.
 - Be careful when editing `plugins.ini`. Incorrect paths or entries may prevent plugins from loading as expected.
 - Creating a backup before making configuration changes is strongly recommended.
 
