@@ -2,66 +2,70 @@
 
 A PlayStation 4 homebrew application for managing GoldHEN game plugins and the `plugins.ini` configuration directly from your console.
 
-Browse installed games, assign plugins to one or multiple titles, manage your plugin collection, set default plugins, and edit or back up `plugins.ini` using the PS4 controller.
+Browse installed games, manage plugin files, assign plugins to games, get plugins from different sources, and edit or back up `plugins.ini` using your PS4 controller.
 
 ## Screenshots
 
-The screenshots below show the current application interface.
-
 ### My Games
 
-Browse the games and applications installed on the console.
+Browse the games and applications installed on your PS4.
 
-![My Games](screenshots/games-list.jpg)
-
-### Game Plugins — Grid View
-
-Browse plugin files using the artwork-based grid layout.
-
-![Game Plugins — Grid View](screenshots/my-plugins-grid.jpg)
+![My Games](screenshots/my_games.jpg)
 
 ### Game Plugins — List View
 
-Browse plugin filenames and check how each plugin is used in `plugins.ini`.
+View available plugin files and manage their assignments.
 
-![Game Plugins — List View](screenshots/my-plugins-list.jpg)
+![Game Plugins — List View](screenshots/game_plugins.jpg)
+
+### Game Plugins — Grid View
+
+Browse plugins in the artwork-based grid layout.
+
+![Game Plugins — Grid View](screenshots/game_plugins_grid.jpg)
 
 ### GET — Internet
 
-Browse the online plugin catalog and get plugins from the Internet.
+Browse and get plugins from the online catalog.
 
-### GET — USB
+![GET — Internet](screenshots/internet_preview.jpg)
 
-Browse plugin files available on a connected USB storage device.
+### Online Plugin Preview
 
-### GET — File Browser
+Preview online plugin content.
 
-Browse files and folders on the console and choose plugin files.
+![Online Plugin Preview](screenshots/online_preview%20.jpg)
+
+### File Browser
+
+Browse folders and select files from the console.
+
+![File Browser](screenshots/folder_option.jpg)
+
+### Game Preview
+
+Example of game artwork displayed by the application.
+
+![Game Preview](screenshots/GTAV_preview.jpg)
 
 ### `plugins.ini` Editor
 
-Review and edit the entries in `plugins.ini` directly on the console.
+Review and edit GoldHEN plugin configuration entries.
 
-![plugins.ini Editor](screenshots/plugins-ini-editor.jpg)
-
-### Backup History
-
-Browse manual backups created from the `plugins.ini` screen.
-
-![Backup History](screenshots/plugins-ini-backups.jpg)
+![plugins.ini Editor](screenshots/plugins.ini.jpg)
 
 ## Features
 
 - Browse games and applications installed on the PS4.
 - Manage plugin files from the Game Plugins screen.
-- Assign a plugin to one or multiple games.
+- Assign plugins to games.
 - Set a plugin as the default plugin for all applications.
 - View plugin usage information based on its entries in `plugins.ini`.
 - Switch between List View and Grid View.
-- Get plugins from three sources:
+- Get and browse plugins through the available GET sources:
   - **Internet** — browse the online plugin catalog.
   - **USB** — browse plugin files on connected USB storage.
-  - **File Browser** — browse files and folders on the console.
+  - **File Browser** — navigate the console's file system and select plugin files.
 - Edit `plugins.ini` directly from the console.
 - Copy, paste, and delete configuration entries.
 - Create and browse manual backups of `plugins.ini`.
@@ -70,25 +74,25 @@ Browse manual backups created from the `plugins.ini` screen.
 
 ### My Games
 
-The My Games screen displays the games and applications installed on your console. Select a game to manage the plugins assigned to it, or view the plugins already enabled for that title.
+The My Games screen displays games and applications installed on your console. Select a title to manage the plugins assigned to it.
 
 ### Game Plugins
 
-Game Plugins displays the available plugin files. Use the screen controls to select plugins, assign them to games, set a default plugin, refresh the list, and switch between List View and Grid View.
+The Game Plugins screen displays available plugin files. Use the available controls to select plugins, assign them to games, set a default plugin, refresh the list, and switch between List View and Grid View.
 
-In List View, the filename is displayed without the full `/data/GoldHEN/plugins/` directory prefix. The usage column indicates whether the plugin is configured as a default plugin or how many game entries use it in `plugins.ini`.
+In List View, plugin usage information is based on the entries found in `plugins.ini`.
 
 ### GET
 
-The GET menu provides three ways to find plugin files:
+The GET menu provides different ways to find plugin files:
 
 | Source | Description |
 |:--|:--|
-| **Internet** | Browse the online plugin catalog and get plugin files from the Internet. |
+| **Internet** | Browse the online plugin catalog and get plugin files over the network. |
 | **USB** | Browse plugin files stored on a connected USB device. |
 | **File Browser** | Navigate the console's file system and choose plugin files from an available location. |
 
-The Internet catalog is online content; its catalog artwork and plugin entries are retrieved from the online source rather than being bundled as local catalog images in the PKG.
+The Internet catalog is online content. Its entries and preview artwork are retrieved from the online source rather than being bundled as a local catalog in the PKG.
 
 ### `plugins.ini` Editor
 
@@ -105,21 +109,21 @@ Use this screen to manage the entries in `plugins.ini` directly on your console.
 | **OPTIONS** | Open the list of existing backups |
 
 > [!IMPORTANT]
-> Backups are **not created automatically**. Press **△ Triangle** to create a backup before editing `plugins.ini`.
+> Backups are not created automatically. Press **△ Triangle** to create a backup before editing `plugins.ini`.
 
 ## Notes
 
 - Plugin configuration is managed through GoldHEN's `plugins.ini`.
 - The Internet source requires an active network connection.
 - USB browsing requires a connected and mounted USB storage device.
-- Be careful when editing `plugins.ini`. Incorrect paths or entries may prevent plugins from loading as expected.
+- Incorrect paths or entries in `plugins.ini` may prevent plugins from loading as expected.
 - Creating a backup before making configuration changes is strongly recommended.
 
 ## Building from Source
 
-This repository contains the project source code. The OpenOrbis Toolchain is a separate dependency and is **not included** in this repository.
+This repository contains the project source code. The OpenOrbis Toolchain is a separate dependency and is not included in this repository.
 
-See **[OPENORBIS_SETUP.md](OPENORBIS_SETUP.md)** for the required toolchain files, host tools, and setup notes before building.
+See [OPENORBIS_SETUP.md](OPENORBIS_SETUP.md) for the required toolchain files, host tools, and setup notes before building.
 
 > Windows build support is provided in the build scripts but has not yet been verified in a tested Windows build environment.
 
