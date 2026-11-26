@@ -121,3 +121,72 @@ bool EditSelectedIniLine(int32_t userID)
     snprintf(gStatus, sizeof(gStatus), "Line %d updated", gIniCursor + 1);
     return true;
 }
+
+
+// Search prompt for My Games. Uses the same native PS4 system keyboard (IME dialog) and the
+// same init / status / result sequence as EditSelectedIniLine() above.
+// Returns true when the user confirmed; `outText` then holds the typed text (may be empty,
+// which clears the search). Returns false when cancelled or the keyboard could not start.
+bool PromptSearchText(const char *initialText, char *outText, size_t outSize)
+{
+    if (!outText || outSize == 0) return false;
+    outText[0] = '\0';
+
+    if (sceSysmoduleLoadModule(ORBIS_SYSMODULE_IME_DIALOG) < 0)
+    {
+        snprintf(gStatus, sizeof(gStatus), "Could not load PS4 on-screen keyboard module");
+        return false;
+    }
+
+    const int maxLen = 47; // matches gSearchQuery
+    wchar_t inputTextBuffer[64] = {};
+    if (initialText && initialText[0] &&
+        mbstowcs(inputTextBuffer, initialText, maxLen) == (size_t)-1)
+        inputTextBuffer[0] = L'\0';
+
+    static const wchar_t title[] = L"Search games (title or ID)";
+
+    OrbisImeDialogSetting setting = {};
+    setting.userId = 0xFE;
+    setting.type = ORBIS_TYPE_BASIC_LATIN;
+    setting.enterLabel = ORBIS_BUTTON_LABEL_DEFAULT;
+    setting.maxTextLength = maxLen;
+    setting.inputTextBuffer = inputTextBuffer;
+    setting.title = title;
+
+    (void)sceImeDialogInit(&setting, NULL);
+
+    int status = ORBIS_DIALOG_STATUS_NONE;
+    for (;;)
+    {
+        status = sceImeDialogGetStatus();
+        if (status == ORBIS_DIALOG_STATUS_STOPPED)
+            break;
+        if (status == ORBIS_DIALOG_STATUS_NONE)
+        {
+            sceImeDialogTerm();
+            snprintf(gStatus, sizeof(gStatus), "PS4 keyboard did not start");
+            return false;
+        }
+        sceKernelUsleep(10000);
+    }
+
+    OrbisDialogResult result = {};
+    int resultCode = sceImeDialogGetResult(&result);
+    sceImeDialogTerm();
+    if (resultCode < 0 || result.endstatus != ORBIS_DIALOG_OK)
+        return false;
+
+    char typed[160] = {};
+    size_t converted = wcstombs(typed, inputTextBuffer, sizeof(typed) - 1);
+    if (converted == (size_t)-1)
+    {
+        snprintf(gStatus, sizeof(gStatus), "Could not read text from PS4 keyboard");
+        return false;
+    }
+    typed[converted] = '\0';
+    while (converted && (typed[converted - 1] == '\n' || typed[converted - 1] == '\r'))
+        typed[--converted] = '\0';
+    CopyText(outText, outSize, typed);
+    return true;
+}

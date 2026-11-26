@@ -401,7 +401,7 @@ static bool load(const char *path, PngImage *image)
     bool supportedColor = colorType == 0 || colorType == 2 || colorType == 3 || colorType == 4 || colorType == 6;
     bool paletteValid = colorType != 3 || paletteEntries > 0;
     if (gotHeader && gotEnd && idat && idatSize >= 6 && w > 0 && h > 0 &&
-        w <= 1024 && h <= 1024 && bitDepth == 8 && interlace == 0 && channels > 0 && supportedColor && paletteValid)
+        w <= 2048 && h <= 2048 && bitDepth == 8 && interlace == 0 && channels > 0 && supportedColor && paletteValid)
     {
         size_t rowBytes = (size_t)w * (size_t)channels;
         size_t rawSize = (rowBytes + 1) * (size_t)h;

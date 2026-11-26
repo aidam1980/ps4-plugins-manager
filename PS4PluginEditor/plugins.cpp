@@ -76,11 +76,64 @@ bool EffectivePluginState(const char *path, const char *gameId, bool *configured
     return haveGame ? gameState : (haveDefault ? defaultState : false);
 }
 
+// How many installed games enable this plugin in their own [TITLEID] section.
+// *defaultOn is set when the plugin is enabled in [default] (it then applies to every game).
+int CountPluginGames(const char *path, bool *defaultOn)
+{
+    bool haveDefault = false, defaultState = false;
+    int matchIdx[512];
+    int matchCount = 0;
+    for (int i = 0; i < gConfigCount; ++i)
+    {
+        if (strcmp(gConfig[i].path, path) != 0) continue;
+        if (IsDefaultSection(gConfig[i].section))
+        {
+            haveDefault = true;
+            defaultState = gConfig[i].enabled;
+        }
+        else if (matchCount < 512)
+            matchIdx[matchCount++] = i;
+    }
+    if (defaultOn) *defaultOn = haveDefault && defaultState;
+    int games = 0;
+    for (int g = 0; g < gGameCount; ++g)
+    {
+        bool have = false, state = false;
+        for (int k = 0; k < matchCount; ++k)
+        {
+            if (strcasecmp(gConfig[matchIdx[k]].section, gGames[g].id) != 0) continue;
+            have = true;
+            state = gConfig[matchIdx[k]].enabled; // last line for the game wins
+        }
+        if (have && state) ++games;
+    }
+    return games;
+}
+
 int FindPlugin(const char *path)
 {
     for (int i = 0; i < gPluginCount; ++i)
         if (strcmp(gPlugins[i].path, path) == 0) return i;
     return -1;
+}
+
+
+static int ComparePluginNames(const void *a, const void *b)
+{
+    const PluginEntry *pa = (const PluginEntry *)a;
+    const PluginEntry *pb = (const PluginEntry *)b;
+    const char *na = strrchr(pa->path, '/');
+    const char *nb = strrchr(pb->path, '/');
+    na = na ? na + 1 : pa->path;
+    nb = nb ? nb + 1 : pb->path;
+    int byName = strcasecmp(na, nb);
+    return byName ? byName : strcasecmp(pa->path, pb->path);
+}
+
+static void SortPluginEntries()
+{
+    if (gPluginCount > 1)
+        qsort(gPlugins, (size_t)gPluginCount, sizeof(PluginEntry), ComparePluginNames);
 }
 
 void AddPluginPath(const char *path, const char *gameId)
@@ -136,9 +189,12 @@ void ScanPluginFilesRecursive(const char *root, const char *gameId, int depth, i
 
 void LoadPluginsForGame(const Game &game)
 {
+    // Preserve the selected file across reloads (for example, after toggling it).
+    char previouslySelectedPath[sizeof(gPlugins[0].path)] = {};
+    int previousSelection = gSelectedPlugin;
+    if (gSelectedPlugin >= 0 && gSelectedPlugin < gPluginCount)
+        CopyText(previouslySelectedPath, sizeof(previouslySelectedPath), gPlugins[gSelectedPlugin].path);
     gPluginCount = 0;
-    gSelectedPlugin = 0;
-    gPluginScroll = 0;
     LoadConfigEntries();
     // My Games intentionally lists files from the GoldHEN plugins directory,
     // with the selected game's [TITLE_ID] section used to show its own state.
@@ -152,6 +208,11 @@ void LoadPluginsForGame(const Game &game)
             continue;
         AddPluginPath(gConfig[i].path, game.id);
     }
+    SortPluginEntries();
+    int restoredSelection = previouslySelectedPath[0] ? FindPlugin(previouslySelectedPath) : -1;
+    if (restoredSelection >= 0) gSelectedPlugin = restoredSelection;
+    else if (gPluginCount > 0) gSelectedPlugin = previousSelection < gPluginCount ? previousSelection : gPluginCount - 1;
+    else gSelectedPlugin = 0;
     if (gPluginCount > 0)
         snprintf(gStatus, sizeof(gStatus), "%d plugin files / entries; X toggles only %s", gPluginCount, game.id);
     else
@@ -330,6 +391,7 @@ void LoadPluginCatalog()
     LoadConfigEntries();
     int visited = 0;
     ScanPluginFilesRecursive(PLUGIN_ROOT, "", 0, &visited);
+    SortPluginEntries();
     if (gPluginCount > 0)
         snprintf(gStatus, sizeof(gStatus), "%d PRX/SPRX files found in %s", gPluginCount, PLUGIN_ROOT);
     else

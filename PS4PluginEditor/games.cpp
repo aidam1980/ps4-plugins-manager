@@ -234,20 +234,36 @@ int CompareGames(const void *a, const void *b)
     return strcmp(ga->id, gb->id);
 }
 
+// Which game index each icon slot currently holds (-2 = nothing loaded).
+static int sCachedIcons[GAME_PAGE_SIZE] = {-2, -2, -2, -2, -2, -2, -2, -2, -2};
+
 void FreePageIcons()
 {
-    for (int i = 0; i < GAME_PAGE_SIZE; ++i) FreePngImage(&gPageIcons[i]);
+    for (int i = 0; i < GAME_PAGE_SIZE; ++i)
+    {
+        FreePngImage(&gPageIcons[i]);
+        sCachedIcons[i] = -2;
+    }
     gCachedPage = -1;
 }
 
-void LoadPageIcons(int pageStart)
+bool PageIconsReady(const int *indices)
 {
-    if (gCachedPage == pageStart) return;
+    for (int i = 0; i < GAME_PAGE_SIZE; ++i)
+        if (sCachedIcons[i] != indices[i]) return false;
+    return true;
+}
+
+// Loads icons for an arbitrary set of games (used by the filtered My Games grid).
+void LoadPageIconsByIndex(const int *indices)
+{
+    if (PageIconsReady(indices)) return;
     FreePageIcons();
     for (int slot = 0; slot < GAME_PAGE_SIZE; ++slot)
     {
-        int index = pageStart + slot;
-        if (index >= gGameCount) break;
+        const int index = indices[slot];
+        sCachedIcons[slot] = index;
+        if (index < 0 || index >= gGameCount) continue;
         if (gGames[index].iconPath[0] &&
             !LoadPngRGBA(gGames[index].iconPath, &gPageIcons[slot]))
         {
@@ -256,7 +272,15 @@ void LoadPageIcons(int pageStart)
                 LoadPngRGBA(gGames[index].iconFallbackPath, &gPageIcons[slot]);
         }
     }
-    gCachedPage = pageStart;
+    gCachedPage = indices[0];
+}
+
+void LoadPageIcons(int pageStart)
+{
+    int indices[GAME_PAGE_SIZE];
+    for (int slot = 0; slot < GAME_PAGE_SIZE; ++slot)
+        indices[slot] = (pageStart + slot < gGameCount) ? pageStart + slot : -1;
+    LoadPageIconsByIndex(indices);
 }
 
 void EnsurePluginsIni()

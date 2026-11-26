@@ -24,6 +24,23 @@ extern "C" int GoldenPluginE_JbcBootstrap(void);
 
 // Application entry point and controller/event loop.
 
+// Hold-to-repeat timing. Measured in milliseconds, not frames: the UI renders at
+// roughly 12-15 FPS, so the old frame-based delay felt very slow.
+static const uint64_t NAV_INITIAL_DELAY_MS = 260;  // hold before repeating starts
+static const uint64_t NAV_SLOW_INTERVAL_MS = 80;   // first second of holding
+static const uint64_t NAV_FAST_INTERVAL_MS = 45;   // after 0.9 s
+static const uint64_t NAV_TURBO_INTERVAL_MS = 28;  // after 2.2 s
+static const uint64_t NAV_FAST_AFTER_MS = 900;
+static const uint64_t NAV_TURBO_AFTER_MS = 2200;
+static const int NAV_MAX_STEPS_PER_FRAME = 4;
+
+static uint64_t NowMs()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000L);
+}
+
 
 int main()
 {
@@ -63,6 +80,8 @@ int main()
         for (;;) sceKernelUsleep(1000000);
     }
 
+    RegisterUiFonts(largeFont, smallFont);
+
     int padHandle = -1;
     int32_t userID = -1;
     if (scePadInit() == 0)
@@ -76,40 +95,179 @@ int main()
     EnsurePluginsIni();
     RefreshGames();
     uint32_t previousButtons = 0;
-    uint32_t previousAnalogDirections = 0;
+    uint32_t previousNavigationDirections = 0;
+    uint64_t navigationHoldStart[4] = {0, 0, 0, 0};
+    uint64_t navigationNextRepeat[4] = {0, 0, 0, 0};
+    const uint32_t navigationButtons[4] = {
+        ORBIS_PAD_BUTTON_UP, ORBIS_PAD_BUTTON_DOWN,
+        ORBIS_PAD_BUTTON_LEFT, ORBIS_PAD_BUTTON_RIGHT
+    };
     int frameID = 0;
     for (;;)
     {
         uint32_t pressed = 0;
+        uint32_t navigationDirections = 0;
         if (padHandle >= 0)
         {
             OrbisPadData pad = {};
             if (scePadReadState(padHandle, &pad) >= 0 && pad.connected)
             {
-                pressed = pad.buttons & ~previousButtons;
-                previousButtons = pad.buttons;
+                uint32_t rawButtons = pad.buttons;
+                // Navigation is handled separately to support press-and-hold repeat.
+                pressed = (rawButtons & ~previousButtons) &
+                          ~(ORBIS_PAD_BUTTON_UP | ORBIS_PAD_BUTTON_DOWN |
+                            ORBIS_PAD_BUTTON_LEFT | ORBIS_PAD_BUTTON_RIGHT);
+                previousButtons = rawButtons;
 
-                // Left analog stick behaves exactly like the D-pad.
+                navigationDirections = rawButtons &
+                    (ORBIS_PAD_BUTTON_UP | ORBIS_PAD_BUTTON_DOWN |
+                     ORBIS_PAD_BUTTON_LEFT | ORBIS_PAD_BUTTON_RIGHT);
+
+                // Left analog stick shares the same repeat behavior as the D-pad.
                 // A 32-point dead zone around neutral (128) avoids stick drift.
-                uint32_t analogDirections = 0;
                 const int stickX = (int)pad.leftStick.x;
                 const int stickY = (int)pad.leftStick.y;
-                if (stickX < 96)  analogDirections |= ORBIS_PAD_BUTTON_LEFT;
-                if (stickX > 160) analogDirections |= ORBIS_PAD_BUTTON_RIGHT;
-                if (stickY < 96)  analogDirections |= ORBIS_PAD_BUTTON_UP;
-                if (stickY > 160) analogDirections |= ORBIS_PAD_BUTTON_DOWN;
-
-                // Fire once when entering a direction, just like a D-pad press.
-                pressed |= analogDirections & ~previousAnalogDirections;
-                previousAnalogDirections = analogDirections;
+                if (stickX < 96)  navigationDirections |= ORBIS_PAD_BUTTON_LEFT;
+                if (stickX > 160) navigationDirections |= ORBIS_PAD_BUTTON_RIGHT;
+                if (stickY < 96)  navigationDirections |= ORBIS_PAD_BUTTON_UP;
+                if (stickY > 160) navigationDirections |= ORBIS_PAD_BUTTON_DOWN;
             }
             else
             {
                 previousButtons = 0;
-                previousAnalogDirections = 0;
+                navigationDirections = 0;
             }
         }
 
+        // Direction handling with accelerating auto-repeat. Each direction yields a number
+        // of "steps" for this frame; extra steps are replayed through the input handlers
+        // below (only the last pass draws), so holding a button moves several items per
+        // frame instead of being limited by the frame rate.
+        const uint64_t nowMs = NowMs();
+        int navigationSteps[4] = {0, 0, 0, 0};
+        bool navigationRepeating = false;
+        for (int i = 0; i < 4; ++i)
+        {
+            const uint32_t direction = navigationButtons[i];
+            if (!(navigationDirections & direction)) continue;
+            if (!(previousNavigationDirections & direction))
+            {
+                navigationSteps[i] = 1; // immediate first move
+                navigationHoldStart[i] = nowMs;
+                navigationNextRepeat[i] = nowMs + NAV_INITIAL_DELAY_MS;
+            }
+            else if (nowMs >= navigationNextRepeat[i])
+            {
+                const uint64_t held = nowMs - navigationHoldStart[i];
+                const uint64_t interval = held >= NAV_TURBO_AFTER_MS ? NAV_TURBO_INTERVAL_MS
+                                        : (held >= NAV_FAST_AFTER_MS ? NAV_FAST_INTERVAL_MS
+                                                                     : NAV_SLOW_INTERVAL_MS);
+                int steps = 1 + (int)((nowMs - navigationNextRepeat[i]) / interval);
+                if (steps > NAV_MAX_STEPS_PER_FRAME) steps = NAV_MAX_STEPS_PER_FRAME;
+                navigationSteps[i] = steps;
+                navigationNextRepeat[i] += (uint64_t)steps * interval;
+                if (navigationNextRepeat[i] + 150 < nowMs) navigationNextRepeat[i] = nowMs;
+            }
+            if (nowMs >= navigationHoldStart[i] + NAV_INITIAL_DELAY_MS) navigationRepeating = true;
+        }
+        previousNavigationDirections = navigationDirections;
+        gNavFast = navigationRepeating;
+
+        const uint32_t buttonPressed = pressed; // edge-triggered, non-direction buttons
+        int passes = 1;
+        for (int i = 0; i < 4; ++i)
+            if (navigationSteps[i] > passes) passes = navigationSteps[i];
+        for (int pass = 0; pass < passes; ++pass)
+        {
+        const bool lastPass = (pass == passes - 1);
+        pressed = (pass == 0) ? buttonPressed : 0;
+        for (int i = 0; i < 4; ++i)
+            if (navigationSteps[i] > pass) pressed |= navigationButtons[i];
+
+        // GET is a modal flow opened from Game Plugins; top-level tabs stay untouched.
+        if (gGetView == 1)
+        {
+            int menuItems = 3 + gGetShortcutCount;
+            if (gGetConfirmShortcutDelete)
+            {
+                if (pressed & ORBIS_PAD_BUTTON_CROSS)
+                {
+                    DeleteGetShortcut(gGetMenuCursor - 3);
+                    gGetConfirmShortcutDelete = false;
+                    if (gGetMenuCursor >= 3 + gGetShortcutCount && gGetMenuCursor > 0)
+                        gGetMenuCursor = 3 + gGetShortcutCount - 1;
+                }
+                else if (pressed & ORBIS_PAD_BUTTON_CIRCLE)
+                {
+                    gGetConfirmShortcutDelete = false;
+                    snprintf(gStatus, sizeof(gStatus), "Shortcut deletion cancelled");
+                }
+            }
+            else
+            {
+            if ((pressed & ORBIS_PAD_BUTTON_UP) && gGetMenuCursor > 0) --gGetMenuCursor;
+            if ((pressed & ORBIS_PAD_BUTTON_DOWN) && gGetMenuCursor + 1 < menuItems) ++gGetMenuCursor;
+            if (pressed & ORBIS_PAD_BUTTON_CROSS)
+            {
+                if (gGetMenuCursor == 1)
+                {
+                    ScanGetUsbPlugins();
+                    gGetView = 2;
+                }
+                else if (gGetMenuCursor == 0)
+                {
+                    gGetView = 4;
+                    OpenGetOnlineCatalog();
+                }
+                else if (gGetMenuCursor == 2)
+                {
+                    gBrowserShortcutMode = false;
+                    CopyText(gBrowserPath, sizeof(gBrowserPath), "/");
+                    ScanGetBrowserDirectory();
+                    gGetView = 3;
+                }
+                else
+                {
+                    int shortcutIndex = gGetMenuCursor - 3;
+                    if (shortcutIndex >= 0 && shortcutIndex < gGetShortcutCount)
+                    {
+                        gBrowserShortcutMode = true;
+                        CopyText(gBrowserPath, sizeof(gBrowserPath), gGetShortcuts[shortcutIndex]);
+                        ScanGetBrowserDirectory();
+                        gGetView = 3;
+                    }
+                }
+            }
+            if (pressed & ORBIS_PAD_BUTTON_SQUARE)
+            {
+                if (gGetMenuCursor >= 3 && gGetMenuCursor < menuItems)
+                {
+                    gGetConfirmShortcutDelete = true;
+                    snprintf(gStatus, sizeof(gStatus), "Confirm shortcut deletion");
+                }
+                else snprintf(gStatus, sizeof(gStatus), "Built-in GET items cannot be deleted");
+            }
+            if (!gGetConfirmShortcutDelete && (pressed & ORBIS_PAD_BUTTON_CIRCLE)) { gGetView = 0; gStatus[0] = '\0'; }
+            }
+            if (lastPass) DrawGetMenu(scene, largeFont, smallFont);
+        }
+        else if (gGetView == 2)
+        {
+            HandleGetUsbAction(pressed);
+            if (lastPass) DrawGetUsb(scene, largeFont, smallFont);
+        }
+        else if (gGetView == 3)
+        {
+            HandleGetBrowserAction(pressed);
+            if (lastPass) DrawGetBrowser(scene, largeFont, smallFont);
+        }
+        else if (gGetView == 4)
+        {
+            HandleGetOnlineAction(pressed);
+            if (lastPass) DrawGetOnline(scene, largeFont, smallFont);
+        }
+        else
+        {
         // L1/R1 change only among the three requested top-level lists.
         if (pressed & ORBIS_PAD_BUTTON_L1) SelectTab(gTab - 1);
         if (pressed & ORBIS_PAD_BUTTON_R1) SelectTab(gTab + 1);
@@ -118,25 +276,50 @@ int main()
         {
             if (!gInDetails)
             {
-                int oldPage = gSelectedGame / GAME_PAGE_SIZE;
-                if (gGameCount > 0)
+                RebuildGameFilter();
                 {
-                    if (pressed & ORBIS_PAD_BUTTON_LEFT)  gSelectedGame = (gSelectedGame + gGameCount - 1) % gGameCount;
-                    if (pressed & ORBIS_PAD_BUTTON_RIGHT) gSelectedGame = (gSelectedGame + 1) % gGameCount;
-                    if ((pressed & ORBIS_PAD_BUTTON_UP) && gSelectedGame >= 3) gSelectedGame -= 3;
-                    if ((pressed & ORBIS_PAD_BUTTON_DOWN) && gSelectedGame + 3 < gGameCount) gSelectedGame += 3;
-                    if ((gSelectedGame / GAME_PAGE_SIZE) != oldPage)
-                        LoadPageIcons((gSelectedGame / GAME_PAGE_SIZE) * GAME_PAGE_SIZE);
-                    if (pressed & ORBIS_PAD_BUTTON_CROSS)
+                    if (gFilteredCount > 0)
                     {
-                        gShowSelectedPlugins = false;
-                        gInDetails = true;
-                        LoadPluginsForGame(gGames[gSelectedGame]);
+                        // Navigate the filtered list; gSelectedGame stays an index into gGames.
+                        int pos = GameFilterPosition(gSelectedGame);
+                        if (pos < 0) pos = 0;
+                        if (pressed & ORBIS_PAD_BUTTON_LEFT)  pos = (pos + gFilteredCount - 1) % gFilteredCount;
+                        if (pressed & ORBIS_PAD_BUTTON_RIGHT) pos = (pos + 1) % gFilteredCount;
+                        if ((pressed & ORBIS_PAD_BUTTON_UP) && pos >= 3) pos -= 3;
+                        if ((pressed & ORBIS_PAD_BUTTON_DOWN) && pos + 3 < gFilteredCount) pos += 3;
+                        gSelectedGame = gFilteredGames[pos];
+                        if (pressed & ORBIS_PAD_BUTTON_CROSS)
+                        {
+                            gShowSelectedPlugins = false;
+                            gInDetails = true;
+                            LoadPluginsForGame(gGames[gSelectedGame]);
+                        }
+                        if (pressed & ORBIS_PAD_BUTTON_TRIANGLE) gShowSelectedPlugins = !gShowSelectedPlugins;
                     }
-                    if (pressed & ORBIS_PAD_BUTTON_TRIANGLE) gShowSelectedPlugins = !gShowSelectedPlugins;
+                    if ((pressed & ORBIS_PAD_BUTTON_SQUARE) && !gShowSelectedPlugins && gGameCount > 0)
+                    {
+                        // Native PS4 system keyboard, same as the plugins.ini line editor.
+                        char typed[sizeof(gSearchQuery)];
+                        if (PromptSearchText(gSearchQuery, typed, sizeof(typed)))
+                        {
+                            Trim(typed);
+                            CopyText(gSearchQuery, sizeof(gSearchQuery), typed);
+                            RebuildGameFilter();
+                            if (gFilteredCount > 0) gSelectedGame = gFilteredGames[0];
+                        }
+                        // The dialog consumed the button presses; don't let a still-held
+                        // CROSS/CIRCLE count as a fresh press when we come back.
+                        OrbisPadData syncPad = {};
+                        if (padHandle >= 0 && scePadReadState(padHandle, &syncPad) >= 0)
+                            previousButtons = syncPad.buttons;
+                    }
+                    if (pressed & ORBIS_PAD_BUTTON_CIRCLE)
+                    {
+                        if (gShowSelectedPlugins) gShowSelectedPlugins = false;
+                        else if (gSearchQuery[0]) { gSearchQuery[0] = '\0'; RebuildGameFilter(); }
+                    }
                 }
-                if (pressed & ORBIS_PAD_BUTTON_CIRCLE) gShowSelectedPlugins = false;
-                DrawMyGames(scene, largeFont, smallFont);
+                if (lastPass) DrawMyGames(scene, largeFont, smallFont);
             }
             else
             {
@@ -156,7 +339,7 @@ int main()
                 }
                 if (pressed & ORBIS_PAD_BUTTON_CIRCLE) { gInDetails = false; gStatus[0] = '\0'; }
                 if (pressed & ORBIS_PAD_BUTTON_SQUARE) LoadPluginsForGame(gGames[gSelectedGame]);
-                DrawMyGames(scene, largeFont, smallFont);
+                if (lastPass) DrawMyGames(scene, largeFont, smallFont);
             }
         }
         else if (gTab == 1)
@@ -226,6 +409,13 @@ int main()
                     }
                 }
                 if (pressed & ORBIS_PAD_BUTTON_SQUARE) LoadPluginCatalog();
+                if (pressed & ORBIS_PAD_BUTTON_TRIANGLE)
+                {
+                    gGetView = 1;
+                    gGetMenuCursor = 0;
+                    LoadGetShortcuts();
+                    gStatus[0] = '\0';
+                }
             }
             else if (gBulkView == 1)
             {
@@ -277,7 +467,7 @@ int main()
                 }
                 if (pressed & ORBIS_PAD_BUTTON_CIRCLE) { gBulkView = 0; gBulkSelectedCount = 0; memset(gBulkSelected, 0, sizeof(gBulkSelected)); }
             }
-            DrawGamePlugins(scene, largeFont, smallFont);
+            if (lastPass) DrawGamePlugins(scene, largeFont, smallFont);
         }
         else
         {
@@ -308,7 +498,7 @@ int main()
                     if (CommitIniEdit()) gIniKeyboard = false;
                 }
                 if (pressed & ORBIS_PAD_BUTTON_CIRCLE) { gIniKeyboard = false; snprintf(gStatus, sizeof(gStatus), "Edit cancelled"); }
-                DrawIniKeyboard(scene, largeFont, smallFont);
+                if (lastPass) DrawIniKeyboard(scene, largeFont, smallFont);
             }
             else if (gIniBackupView)
             {
@@ -317,7 +507,7 @@ int main()
                 if (pressed & ORBIS_PAD_BUTTON_CROSS) RestoreSelectedIniBackup();
                 if (pressed & ORBIS_PAD_BUTTON_CIRCLE) gIniBackupView = false;
                 if (pressed & ORBIS_PAD_BUTTON_SQUARE) DeleteSelectedIniBackup();
-                DrawIniBackups(scene, largeFont, smallFont);
+                if (lastPass) DrawIniBackups(scene, largeFont, smallFont);
             }
             else
             {
@@ -373,9 +563,12 @@ int main()
                     LoadConfigLines(); LoadConfigEntries();
                     snprintf(gStatus, sizeof(gStatus), "Reloaded %d lines", gConfigLineCount);
                 }
-                DrawPluginsIni(scene, largeFont, smallFont);
+                if (lastPass) DrawPluginsIni(scene, largeFont, smallFont);
             }
         }
+        }
+
+        } // end of input passes
 
         scene->SubmitFlip(frameID);
         scene->FrameWait(frameID);
